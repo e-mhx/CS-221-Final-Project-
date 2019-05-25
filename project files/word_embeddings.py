@@ -9,7 +9,7 @@ def getWordEmbeddingDict(vocabSize = 10000):
 
 	word_vec_dict = {}
 
-	with open("../../data/glove.42B.300d/glove.42B.300d.txt", 'r') as file:
+	with open("../data/glove.42B.300d.txt", 'r') as file:
 
 		for lineNum in range(vocabSize):
 			line = file.readline()
@@ -22,6 +22,6 @@ def getWordEmbeddingDict(vocabSize = 10000):
 	return word_vec_dict 
 
 #BEGIN usage example
-word_vec_dict = getWordEmbeddingDict()
-print(word_vec_dict["hello"])
+# word_vec_dict = getWordEmbeddingDict()
+# print(word_vec_dict["hello"])
 #END usage example
