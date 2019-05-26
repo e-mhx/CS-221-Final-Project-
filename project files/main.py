@@ -1,4 +1,3 @@
-# import pytorch-neural-network as nn
 import importlib
 import sys
 import pickle
@@ -6,115 +5,123 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import numpy as np
-np.version.version
 from random import shuffle
 pnn = importlib.import_module("pytorch-neural-network")
 we = importlib.import_module("word_embeddings")
 
-# Global paramters
-wordEmbedDict = we.getWordEmbeddingDict() # load the dictionary
+""" Global Parameters """
+#TODO: put all this stuff in a library file
+# Load some data
+wordEmbedDict = we.getWordEmbeddingDict() # Load the dictionary
 keyset = wordEmbedDict.keys()
-# TRAINING_EXAMPLES = enter some number here
-# index of true label
-TRUE_LABEL = 8 #index of the true label, hard coded
+
+# Indices of our desired data
+TRUE_LABEL = 8 # Index of the true label, hard coded
+BODY_INDEX = 17 # Hard coded because of the structure of our depickled data
+
+# Neural Network Parameters
 NUM_FEATURES = 300
 NUM_EXAMPLES = 3
-BODY_INDEX = 17 # hard coded because of the structure of our depickled data
+NUM_ITERATIONS = 1000
+SUBREDDIT = "leagueoflegends"
 unparsed = "../data/condensed_dataset_SMALL.pkl" # will change this so we can just call the pkl set
+""" """
 
-def loadDataSet(unparsedDataSet):
-	with open(unparsedDataSet, 'rb') as f:
+# @param dir: string, directory of pickle data
+# @return dataset: unpickled dataset
+def loadPickleData(dir):
+	with open(dir, 'rb') as f:
 		dataset = pickle.load(f)
 	return dataset
 
+# Returns X with m examples, Y
+def loadData(pickleDir, m):
+	pickle = loadPickleData(pickleDir)
+	return vectorizeDataSet(pickle, m)
+
 def vectorizeWord(word):
-	vWord = np.zeros((NUM_FEATURES, 1))
+	vWord = torch.zeros((NUM_FEATURES, 1), dtype=torch.float)
 	if word in keyset:
-		vWord = np.array([wordEmbedDict[word]]).reshape((NUM_FEATURES, 1))
+		vWord = torch.reshape(torch.FloatTensor(wordEmbedDict[word]), (NUM_FEATURES, 1))
 	return vWord
 
 def vectorizeComment(body):
-	# initialize empty sum
-	vComment = np.zeros((NUM_FEATURES, 1))
+	vComment = torch.zeros((NUM_FEATURES, 1), dtype=torch.float)
 	words = body.split()
 	for word in words:
 		vWord = vectorizeWord(word)
-		vComment = np.add(vComment, vWord)
+		vComment += vWord
 	return vComment
 
-# Vectorize pickled data into usable format, return X with m examples with NUM_FEATURES features
+# Given label as string, return tensor 1 if SUBREDDIT, tensor 0 if not SUBREDDIT
+def parseLabel(labelStr):
+	if labelStr == SUBREDDIT:
+		return torch.tensor(([1]), dtype=torch.float)
+	return torch.tensor(([0]), dtype=torch.float)
+
 def vectorizeDataSet(data, m):
+	shuffle(data)
+	testSet = data.pop()
 	unrollComment = data[0][BODY_INDEX]
 	X = vectorizeComment(unrollComment)
+	unrollLabel = data[0][TRUE_LABEL]
+	Y = parseLabel(unrollLabel)
 
+	# For each example in old data set, get the actual comment and featurize it into X
+	# Also get its true label
 	for i in range(1, m):
 		comment = data[i][BODY_INDEX]
 		example = vectorizeComment(comment)
-		X = np.append(X, example, axis = 1)
+		label = parseLabel(data[i][TRUE_LABEL])
 
-	print("Size of X: ", X.shape)
-	return X
-
-# def getYValueo
+		Y = torch.cat((Y, label))
+		X = torch.cat((X, example), 1)
+	return [X, Y, testSet]
 
 def main():
 	# Goal: single hidden layer neural network with 3 neurons in it
-
 	# TODO: Paramterize neural network
-	# m = TRAINING_EXAMPLES
 	# numNeurons
 	# numHiddenLayers
 
-	# Loads pickle, parses it, and returns our X
-	# Each column is a feature vector for an entire comment, with NUM_EXAMPLES columns
-	# Each row represents some feature of the comment (unknown)
-	dataSet = loadDataSet(unparsed) 
-	shuffle(dataSet)
-	X = vectorizeDataSet(dataSet, 3)
-	# dataSet[1:3][1:2]
-	# npX = transformData(X)
-	# vector = vectorizeComment(comment)
-	# print(vector)
-	
-	# 
-	# word = 'hi'
-	# for i in range(4):
-	# 	thingToPrint = dataSet[i][TRUE_LABEL]
-	# 	print("---------------------------\n\n\n\n-----------------------------")
-	# 	print(thingToPrint)
-	# len(wordEmbedDict[word])
-
-	
-	
-	# print("size of feature vector for the word ", word, ": ", thingToPrint)
 	NN = pnn.Neural_Network()
 
 	# In this iteration X is our training set and xPredicted is our test set
 	# Will implement validation set soon
 	# TODO: Validation set
 
+	X, Y, testSet = loadData(unparsed, NUM_EXAMPLES)
 	# TODO: Change these to a data set X where each column is a feature with m training examples
 	# Dummy data for now to implement 
 	# Create data set and labels
-	X = torch.tensor(([4, 9], [1, 5], [3, 6]), dtype=torch.float) # 3 X 2 tensor # 3 X 2 tensor, this is our entire data set
-																	# but will be changed to training set
-	y = torch.tensor(([72], [100], [85]), dtype=torch.float) # 3 X 1 tensor
-	xPredicted = torch.tensor(([4, 8]), dtype=torch.float) # 1 X 2 tensor, this is the test set
+	# X = torch.tensor(([4, 4, 5, 2, 1], [7, 9, 8, 5, 4]), dtype=torch.float) # Dummy data
+	# y = torch.tensor(([82, 100, 85, 60, 30]), dtype=torch.float) # True label test
+	# xPredicted = torch.tensor(([4], [7]), dtype=torch.float) 
 
 	# scale units
 	# TODO: Scale by subtracting the mean and divide by the standard deviation
-	X_max, _ = torch.max(X, 0)
-	xPredicted_max, _ = torch.max(xPredicted, 0)
-	X = torch.div(X, X_max)
-	xPredicted = torch.div(xPredicted, xPredicted_max)
-	y = y / 100  # max test score is 100	
-	for i in range(1000):  # trains the NN 1,000 times
+	# X_max, _ = torch.max(X, 0)
+	# xPredicted_max, _ = torch.max(xPredicted, 0)
+	# X = torch.div(X, X_max)
+	# xPredicted = torch.div(xPredicted, xPredicted_max)
+	# y = y / 100  # max test score is 100
+
+	# Test our model:
+	testComment = testSet[BODY_INDEX]
+	testTrueLabel = testSet[TRUE_LABEL]
+	testX = vectorizeComment(testComment)
+	testY = parseLabel(testTrueLabel)
+
+
+
+	for i in range(NUM_ITERATIONS): 
 		# This print statement outputs the value of our loss function. If it is decreasing, then we are doing well
 	    # print("#" + str(i) + " Loss: " + str(torch.mean((y - NN(X))**2).detach().item()))  # mean sum squared loss
-	    NN.train(X, y)
+	    NN.train(X, Y)
 
-
-	NN.saveWeights(NN)
-	NN.predict(xPredicted)
+	# NN.saveWeights(NN), learn how to use this
+	NN.predict(testX)
+	print("Label we are testing: ", SUBREDDIT)
+	print("Label with tensor value: {}, {}".format(testTrueLabel, testY))
 
 main()

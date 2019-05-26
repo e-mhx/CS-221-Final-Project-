@@ -12,54 +12,70 @@ from torch.autograd import Variable
 import torch.nn as nn
 import numpy as np
 
-# dtype = torch.FloatTensor
-
-# data_set = []
-
-# with open('../condensed_dataset.pkl', 'rb') as f:
-# 	data_set = pickle.load(f)
-
 class Neural_Network(nn.Module):
     def __init__(self, ):
         super(Neural_Network, self).__init__()
-        # parameters
-        # TODO: parameters can be parameterized instead of declaring them here
-        # Current state: input size of 2, one hidden layer with three neurons, 
-        self.inputSize = 2
+        # Parameters
+        # Current state: 
+        # 3 layer model; input layer with 300 neurons (number of features)
+        # 1 hidden layer, with 3 neurons
+        # 1 output layer, with 1 neuron
+        self.inputSize = 300
         self.hiddenSize = 3
         self.outputSize = 1
-        
-        # weights
-        self.W1 = torch.randn(self.inputSize, self.hiddenSize) # 3 X 2 tensor
-        self.W2 = torch.randn(self.hiddenSize, self.outputSize) # 3 X 1 tensor
-        
-    def forward(self, X):
-        self.z = torch.matmul(X, self.W1) # 3 X 3 ".dot" does not broadcast in PyTorch
-        self.z2 = self.sigmoid(self.z) # activation function
-        self.z3 = torch.matmul(self.z2, self.W2)
 
-        o = self.sigmoid(self.z3) # final activation function
-        return o
+        # Learning rate
+        # bigger means faster convergence but less accuracy
+        # smaller means slower convergence but more accuracy
+        self.alpha = 0.1 
+
         
+        # Thetas, randomly initialize
+        self.W1 = torch.randn(self.hiddenSize, self.inputSize) # Should be (3x300)
+        self.W2 = torch.randn(self.outputSize, self.hiddenSize) # Should be (1x3)
+        
+    # Performs forward propagation with input X        
+    def forward(self, X):
+        self.z1 = torch.matmul(self.W1, X) 
+        self.a1 = self.sigmoid(self.z1) #Should be (3xNUM_FEATURES)
+        self.z2 = torch.matmul(self.W2, self.a1)
+        a2 =self.sigmoid(self.z2) # y hat, actual hypthesis
+        return a2
+
+        # a2 should be the prediction vector, and it should just be a scalar...not a vector
+        # This is returning 1x3 for some reason. unclear what is happening to the matrix multiplication in forward()
+
+
+        # if a2.item().item() <= 0.5:
+        #     return 0
+        # else:
+        #     return 1
+        
+
+    # activation functions, can change later    
     def sigmoid(self, s):
         return 1 / (1 + torch.exp(-s))
     
     def sigmoidPrime(self, s):
-        # derivative of sigmoid
         return s * (1 - s)
-    
-    def backward(self, X, y, o):
-        self.o_error = y - o # error in output
-        self.o_delta = self.o_error * self.sigmoidPrime(o) # derivative of sig to error
-        self.z2_error = torch.matmul(self.o_delta, torch.t(self.W2))
-        self.z2_delta = self.z2_error * self.sigmoidPrime(self.z2)
-        self.W1 += torch.matmul(torch.t(X), self.z2_delta)
-        self.W2 += torch.matmul(torch.t(self.z2), self.o_delta)
+   
+    # Performs back prop 
+    def backward(self, X, y, a2):
+        #Debug statements: why aren't a2 and y same dimension???
+        print("y size: ", y.size())
+        print("a2 size: ", a2.size())
+
+        self.a2_error = y - a2 # error in output
+        self.a2_delta = self.a2_error * self.sigmoidPrime(a2) # derivative of sig to error
+        self.a1_error = torch.matmul(torch.t(self.W2),self.a2_delta)
+        self.a1_delta = self.a1_error * self.sigmoidPrime(self.a1)
+        self.W1 += torch.matmul(self.a1_delta, torch.t(X))*(self.alpha)
+        self.W2 += torch.matmul(self.a2_delta, torch.t(self.a1))*(self.alpha)
         
     def train(self, X, y):
         # forward + backward pass for training
-        o = self.forward(X)
-        self.backward(X, y, o)
+        a2 = self.forward(X)
+        self.backward(X, y, a2)
         
     def saveWeights(self, model):
         # we will use the PyTorch internal storage functions
@@ -69,5 +85,5 @@ class Neural_Network(nn.Module):
         
     def predict(self, xPredicted):
         print ("Predicted data based on trained weights: ")
-        print ("Input (scaled): \n" + str(xPredicted))
-        print ("Output: \n" + str(self.forward(xPredicted)))
+        # print ("Input (scaled): \n" + str(xPredicted))
+        print ("Prediction: \n" + str(self.forward(xPredicted)))
