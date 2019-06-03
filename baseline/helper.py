@@ -2,50 +2,14 @@ import pickle
 import collections
 import string
 import re
+import constants
 
-
-tinyDataset = [
-	["friend!", 0],
-	["friend good!", 0], 
-	["I love you so much", 0],
-	["do you want to see a movie?", 0],
-	["good friend", 0],
-	["enemy!", 1],
-	["enemy bad!", 1],
-	["I hate you", 1],
-	["get out of my sight", 1],
-	["hate enemy", 1],
-]
-
-smallDataset = [
-	["friend!", 0],
-	["friend good!", 0], 
-	["I love you so much", 0],
-	["do you want to see a movie?", 0],
-	["you are so important to me", 0],
-	["there is no one I'd rather spend time with than you", 0],
-	["we should see each other more", 0],
-	["I'm so happy we got closer", 0],
-	["happy important good", 0],
-	["I want to spend time with you so much", 0],
-	["enemy!", 1],
-	["enemy bad!", 1],
-	["I hate you", 1],
-	["get out of my sight", 1],
-	["evil exists because of people like you", 1],
-	["I don't want to see you", 1],
-	["I've never met anyone as incompetant as you", 1],
-	["can you please leave me be", 1],
-	["I hate you more than anyone", 1],
-	["I will never like you", 1],
-]
-
-def partitionDataset(dataset, catCount, testProp): 
+def partitionDataset(dataset): 
 	trainSet = []
 	testSet = []
 
 	for i in range(len(dataset)):
-		if i % (len(dataset)/catCount) >= (len(dataset)/catCount) * testProp:
+		if i % (len(dataset)/constants.CATEGORY_COUNT) >= (len(dataset)/constants.CATEGORY_COUNT) * constants.TESTSET_PROPORTION:
 			testSet.append(dataset[i])
 		else:
 			trainSet.append(dataset[i])
@@ -53,56 +17,52 @@ def partitionDataset(dataset, catCount, testProp):
 	return trainSet, testSet
 
 
-def learnProbs(dataset, laplace, commentIdx):
+def learnProbsMulti(trainSet):
 
-	ingroupEntryCount = 0
+	wordCountByClass = []
+	for _ in range(constants.CATEGORY_COUNT): wordCountByClass.append(collections.defaultdict(float))
 
-	# get counts
-	ingroupWordCount = collections.defaultdict(float)
-	outgroupWordCount = collections.defaultdict(float)
-	for entry in dataset:
-
-		entryList = entry[commentIdx].split()
-		if entry[-1] == 0: # if the current entry is classified in subreddit 1
-			ingroupEntryCount += 1
-			for word in entryList:
-				normalizedWord = re.sub(r'[^\w\s]','',word.lower())
-				ingroupWordCount[normalizedWord] += 1
-
-		else: # if the current entry is NOT classified in subreddit 1
-			entryList = entry[commentIdx].split()
-			for word in entryList:
-				normalizedWord = re.sub(r'[^\w\s]','',word.lower())
-				outgroupWordCount[normalizedWord] += 1
-
-	# calculate probabilities
-	ingroupWordProb = collections.defaultdict(float)
-	outgroupWordProb = collections.defaultdict(float)
-	for key, val in ingroupWordCount.iteritems():
-		ingroupWordProb[key] = (val+laplace)/(ingroupEntryCount + 2*laplace)
-
-	for key, val in outgroupWordCount.iteritems():
-		outgroupWordProb[key] = (val+laplace)/(len(dataset) - ingroupEntryCount + 2*laplace)
-
-	return ingroupWordProb, outgroupWordProb, ingroupEntryCount
-
-def classAndEval(testSet, ingroupWordProb, outgroupWordProb, ingroupEntryCount, outgroupEntryCount, laplace, commentIdx):
-	
-	correctInCount = 0
-	correctOutCount = 0
-	for entry in testSet:
-		inWeight = 1.0
-		outWeight = 1.0
-
-		entryList = entry[commentIdx].split()
+	for entry in trainSet:
+		entryList = entry[constants.COMMENT_INDEX].split()
 		for word in entryList:
+			normalizedWord = re.sub(r'[^\w\s]','',word.lower())
+			wordCountByClass[entry[-1]][normalizedWord] += 1
 
-			inWeight *= ingroupWordProb[word] if ingroupWordProb[word] != 0 else float(laplace)/(ingroupEntryCount + 2*laplace)
-			outWeight *= outgroupWordProb[word] if outgroupWordProb[word] != 0 else float(laplace)/(outgroupEntryCount + 2*laplace)
+	wordProbByClass = []
+	for _ in range(constants.CATEGORY_COUNT): wordProbByClass.append(collections.defaultdict(float))
 
-		if inWeight > outWeight and entry[-1] == 0:
-			correctInCount+=1
-		if outWeight > inWeight and entry[-1] > 0:
-			correctOutCount+=1
+	for i in range(constants.CATEGORY_COUNT):
+		for key, val in wordCountByClass[i].iteritems():
+			wordProbByClass[i][key] = (val+constants.LAPLACE)/(len(trainSet)/constants.CATEGORY_COUNT + 2*constants.LAPLACE)
 
-	return correctInCount, correctOutCount
+	# ignore the most common words with little semantic meaning 
+	topWords = ["the", "be", "to", "of", "and", "a", "in", "that", "have", "it", "for", "not", "on", "with", "he", "as", "you", "do", "at", \
+		"this", "but", "his", "by", "from", "they", "we", "say", "her", "she", "or", "will", "an", "my", "one", "all", "would", "there", "their", "what"]
+	for i in range(constants.CATEGORY_COUNT):
+		for word in topWords:
+			wordProbByClass[i][word] = 1.0
+
+	return wordProbByClass
+
+
+def classAndEvalMulti(testSet, wordProbByClass):
+	countByClass = [0 for _ in range(constants.CATEGORY_COUNT)]
+	correctCountByClass = [0 for _ in range(constants.CATEGORY_COUNT)]
+
+	for i in range(len(testSet)):
+		entry = testSet[i]
+		weightByClass = [1.0 for _ in range(constants.CATEGORY_COUNT)]
+
+		entryList = entry[constants.COMMENT_INDEX].split()
+		for word in entryList:
+			for i in range(constants.CATEGORY_COUNT):
+				weightByClass[i] *= wordProbByClass[i][word] if wordProbByClass[i][word] != 0 else float(constants.LAPLACE)/(constants.TRAINSET_LEN/constants.CATEGORY_COUNT + 2*constants.LAPLACE)
+
+		classification = weightByClass.index(max(weightByClass))
+
+		countByClass[classification] += 1
+
+		if entry[-1] == classification:
+			correctCountByClass[classification] += 1
+
+	return countByClass, correctCountByClass

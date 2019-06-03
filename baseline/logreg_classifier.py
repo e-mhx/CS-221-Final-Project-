@@ -1,34 +1,28 @@
 import pickle
 import collections
-import string
 import helper
 import re 
+import constants
 
-SMALL_DATASET = '../data/condensed_dataset_SMALL.pkl'
-FULL_DATASET = '../../data/condensed_dataset.pkl'
+top_20 = ['AskReddit', 'leagueoflegends', 'nba', 'funny', 'pics', 'nfl', 'pcmasterrace', \
+    'videos', 'news', 'todayilearned', 'DestinyTheGame', 'worldnews', 'soccer', 'DotA2', \
+    'AdviceAnimals', 'WTF', 'GlobalOffensive', 'hockey', 'movies', 'SquaredCircle']
 
-CATEGORY_COUNT = 2
-TESTSET_PROPORTION = 0.80
+with open(constants.FULL_DATASET, 'rb') as f:
+    dataset = pickle.load(f) 
 
-LAPLACE = 1
-COMMENT_INDEX = 17
-INENTRY_COUNT = 40000 # number of ingroup entries in the data set
-OUTENTRY_COUNT = 760000
+trainSet, testSet = helper.partitionDataset(dataset)
 
-with open(FULL_DATASET, 'rb') as f:
-    dataset = pickle.load(f) # dataset is the list of entries 
+wordProbByClass = helper.learnProbsMulti(trainSet)
 
-#splits dataset into test set and train set 
+countByClass, correctCountByClass = helper.classAndEvalMulti(testSet, wordProbByClass)
 
+accuracyByClass = [float(correctCountByClass[i])/(constants.TRAINSET_LEN/constants.CATEGORY_COUNT) for i in range(constants.CATEGORY_COUNT)]
 
-trainSet, testSet = helper.partitionDataset(dataset, CATEGORY_COUNT, TESTSET_PROPORTION)
+print (accuracyByClass[9] + accuracyByClass[10])/2
 
-ingroupWordProb, outgroupWordProb, ingroupEntryCount = helper.learnProbs(trainSet, LAPLACE, COMMENT_INDEX)
+results = {value:key for value in top_20 for key in accuracyByClass}
 
-correctInCount, correctOutCount = helper.classAndEval(testSet, ingroupWordProb, outgroupWordProb, INENTRY_COUNT, OUTENTRY_COUNT, LAPLACE, COMMENT_INDEX)
-
-# when run on FULL_DATASET
-# 0/10,000
-# 35/190,000
-print correctInCount
-print correctOutCount
+print countByClass
+print correctCountByClass
+print results
