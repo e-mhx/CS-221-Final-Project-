@@ -14,7 +14,7 @@ with open("X.pkl", 'rb') as f:
 with open("y.pkl", 'rb') as f:
     y = pickle.load(f) 
 
-clf = LogisticRegression(random_state = 0, solver='lbfgs', multi_class='multinomial', max_iter = 10000).fit(X, y)
+clf = LogisticRegression(random_state = 0, solver='lbfgs', multi_class='multinomial', max_iter = 10000000).fit(X, y)
 
 for i in range(constants.CATEGORY_COUNT):
 	predict = clf.predict(X[(constants.TRAINSET_CAT_LEN)*i:(constants.TRAINSET_CAT_LEN)*(i+1), :])
