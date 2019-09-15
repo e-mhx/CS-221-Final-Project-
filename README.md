@@ -1,5 +1,7 @@
 # Who Said It On Reddit: Multiclass Classification of Reddit Comments using Neural Networks
 
+Austin Cai, Cynthia Liang, Erick Fidel Siavichay-Velasco
+
 Reddit is a web content aggregation site where users can post and comment on specific community groups called "subreddits" [1]. Understanding the nature of discussions that occur on Reddit can provide us with a better general understanding of the intricacies of social interaction, especially anonymized online social interaction. 
 
 Multiclass classification has been implemented in a variety of fields to assign datapoints to classification buckets. Cascaded classification models (CCMs), or "repeated instantiations of... classifiers...coupled by their input/output variables", have been shown to be effective in improving performance on certain tasks [2]; though there has not been as much success in NLP applications of CCMs [3].
